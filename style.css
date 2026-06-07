@@ -1,0 +1,343 @@
+/* =========================
+   Modern TensorFlow UI
+========================= */
+
+:root {
+    --bg: #f5f7fb;
+    --card: rgba(255,255,255,0.85);
+    --border: rgba(255,255,255,0.35);
+
+    --text: #1f2937;
+    --text-light: #6b7280;
+
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+
+    --success: #10b981;
+
+    --shadow:
+            0 10px 30px rgba(15, 23, 42, 0.08);
+
+    --radius: 18px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 40px 24px;
+
+    font-family:
+            Inter,
+            "Segoe UI",
+            Arial,
+            sans-serif;
+
+    color: var(--text);
+
+    background:
+            radial-gradient(circle at top left, #dbeafe 0%, transparent 30%),
+            radial-gradient(circle at bottom right, #ede9fe 0%, transparent 35%),
+            var(--bg);
+
+    min-height: 100vh;
+}
+
+/* =========================
+   Container
+========================= */
+
+.container {
+    max-width: 1450px;
+    margin: auto;
+}
+
+/* =========================
+   Card
+========================= */
+
+.card {
+    background: var(--card);
+
+    backdrop-filter: blur(14px);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    padding: 28px;
+
+    margin-bottom: 28px;
+
+    box-shadow: var(--shadow);
+
+    transition:
+            transform 0.25s ease,
+            box-shadow 0.25s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+            0 16px 40px rgba(15, 23, 42, 0.12);
+}
+
+/* =========================
+   Typography
+========================= */
+
+h1,
+h2,
+h3 {
+    margin-top: 0;
+    color: var(--text);
+}
+
+h2 {
+    font-size: 28px;
+    margin-bottom: 18px;
+}
+
+h3 {
+    font-size: 18px;
+    margin-bottom: 14px;
+    color: var(--text-light);
+}
+
+p {
+    line-height: 1.7;
+    color: var(--text-light);
+}
+
+/* =========================
+   Controls
+========================= */
+
+label {
+    display: inline-block;
+    margin-top: 14px;
+    margin-bottom: 8px;
+
+    font-weight: 600;
+    color: var(--text);
+}
+
+input[type="range"] {
+    width: 100%;
+    margin-bottom: 6px;
+
+    accent-color: var(--primary);
+
+    cursor: pointer;
+}
+
+select {
+    width: 100%;
+
+    padding: 12px 14px;
+
+    border-radius: 12px;
+
+    border: 1px solid #d1d5db;
+
+    background: white;
+
+    font-size: 15px;
+
+    outline: none;
+
+    transition: border 0.2s ease;
+}
+
+select:focus {
+    border-color: var(--primary);
+}
+
+span {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* =========================
+   Buttons
+========================= */
+
+button {
+    margin-top: 18px;
+
+    padding: 13px 22px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: linear-gradient(
+            135deg,
+            var(--primary),
+            #7c3aed
+    );
+
+    color: white;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            box-shadow 0.2s ease;
+
+    box-shadow:
+            0 10px 20px rgba(79, 70, 229, 0.25);
+}
+
+button:hover {
+    transform: translateY(-2px);
+
+    opacity: 0.95;
+
+    box-shadow:
+            0 14px 24px rgba(79, 70, 229, 0.35);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* =========================
+   Divider
+========================= */
+
+hr {
+    border: none;
+    height: 1px;
+
+    background:
+            linear-gradient(
+                    to right,
+                    transparent,
+                    #d1d5db,
+                    transparent
+            );
+
+    margin: 28px 0;
+}
+
+/* =========================
+   Plot Layout
+========================= */
+/* =========================
+   Plot Layout
+========================= */
+
+.row {
+    display: flex;
+    gap: 24px;
+}
+
+.plot-wrapper {
+    flex: 1 1 0;
+}
+
+.plot-box {
+    width: 100%;
+    height: 380px;
+
+    background:
+            linear-gradient(
+                    145deg,
+                    rgba(255,255,255,0.95),
+                    rgba(248,250,252,0.95)
+            );
+
+    border-radius: 16px;
+
+    border: 1px solid rgba(226,232,240,0.8);
+
+    padding: 14px;
+
+    overflow: hidden;
+
+    box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.7);
+}
+/* =========================
+   Loss Box
+========================= */
+
+.loss-box {
+    margin-top: 20px;
+
+    padding: 16px 20px;
+
+    border-radius: 14px;
+
+    background:
+            linear-gradient(
+                    135deg,
+                    rgba(79,70,229,0.08),
+                    rgba(16,185,129,0.08)
+            );
+
+    border: 1px solid rgba(79,70,229,0.15);
+
+    font-weight: 600;
+
+    color: var(--text);
+
+    box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* =========================
+   Canvas
+========================= */
+
+canvas {
+    max-width: 100% !important;
+}
+
+.loading-box {
+
+    width: 100%;
+    height: 300px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 16px;
+
+    font-size: 20px;
+    font-weight: 600;
+
+    color: #4f46e5;
+
+    background:
+            linear-gradient(
+                    135deg,
+                    rgba(79,70,229,0.08),
+                    rgba(124,58,237,0.08)
+            );
+
+    animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+
+    0% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.5;
+    }
+}
