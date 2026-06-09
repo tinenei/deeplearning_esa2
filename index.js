@@ -1,791 +1,1189 @@
-console.log('Hello TensorFlow');
+// =========================
+// APP START
+// =========================
 
-let currentData = null;
+
+let currentDataset = null;
 let currentModel = null;
 let modelConfig = {
     layers: 2,
     n1: 100,
     n2: 100,
     n3: 100,
-    activation: 'relu'
+    activation: "relu"
 };
 
+window.addEventListener("load", initApp);
+
+function logRun(stage, dataset) {
+
+    const cfg = modelConfig;
+
+    console.log(
+        `[${stage}]`,
+        {
+            dataPoints: dataset?.xTrain?.length ?? "unknown",
+            layers: cfg.layers,
+            neurons: {
+                n1: cfg.n1,
+                n2: cfg.n2,
+                n3: cfg.n3
+            }
+        }
+    );
+}
+
 /* =========================
-   1. DATENGENERIERUNG
+   LOADING STATES
 ========================= */
 
-function groundTruth(x) {
-    return 0.5 *
+function showLoading(id, text = "Loading...") {
+
+    const el = document.getElementById(id);
+
+    if (!el) return;
+
+    el.innerHTML = `
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p>${text}</p>
+        </div>
+    `;
+}
+
+function clearPlot(id) {
+
+    const el = document.getElementById(id);
+
+    if (!el) return;
+
+    el.innerHTML = "";
+}
+
+async function initApp() {
+    const settings = loadSettings(false);
+    // UI mit gespeicherten Werten aktualisieren
+    document.getElementById("numPoints").value = settings.N;
+    document.getElementById("noiseVar").value = settings.noiseVar;
+
+    document.getElementById("numPointsVal").textContent = settings.N;
+    document.getElementById("noiseVarVal").textContent = settings.noiseVar;
+
+    // Slider aktualisieren
+    registerSliderUpdates();
+
+    // Initiale Daten erzeugen
+    generateDatasetAndTrain();
+}
+
+function loadSettings(useSaved = false) {
+
+    if (!useSaved) {
+        return {
+            N: 100,
+            noiseVar: 0.05
+        };
+    }
+
+    return {
+        N: parseInt(localStorage.getItem("param_N")) || 100,
+        noiseVar: parseFloat(localStorage.getItem("param_noiseVar")) || 0.05
+    };
+}
+
+function generateDataset(
+    N = 100,
+    noiseVar = 0.05,
+    seed = 42
+) {
+
+    // Reproduzierbar
+    if (typeof Math.seedrandom === "function") {
+        Math.seedrandom(seed);
+    }
+
+    // Ziel-Funktion
+    const targetFunction = x =>
+
+        0.5 *
         (x + 0.8) *
         (x + 1.8) *
         (x - 0.2) *
         (x - 0.3) *
         (x - 1.9) + 1;
-}
 
-function generateData(numPoints = 100) {
+    // Gaußsches Rauschen
+    function gaussianNoise(
+        mean = 0,
+        stdDev = 1
+    ) {
 
-    const data = [];
+        let u = 0;
+        let v = 0;
 
-    for (let i = 0; i < numPoints; i++) {
-        const x = Math.random() * 4 - 2;
-        const y = groundTruth(x);
-        data.push({ x, y });
+        while (u === 0) {
+            u = Math.random();
+        }
+
+        while (v === 0) {
+            v = Math.random();
+        }
+
+        return (
+            stdDev *
+            Math.sqrt(-2 * Math.log(u)) *
+            Math.cos(2 * Math.PI * v) +
+            mean
+        );
     }
 
-    return data;
-}
+    // x-Werte
+    const xData = Array.from(
+        { length: N },
+        () => Math.random() * 4 - 2
+    );
 
+    // y-Werte
+    const yClean = xData.map(targetFunction);
 
+    const yNoisy = yClean.map(
+        y => y + gaussianNoise(
+            0,
+            Math.sqrt(noiseVar)
+        )
+    );
 
+    // Zufällige Indizes
+    const indices = Array.from(
+        { length: N },
+        (_, i) => i
+    );
 
-function splitData(data) {
+    // Shuffle
+    indices.sort(() => Math.random() - 0.5);
+  //  tf.util.shuffle(indices);
 
-    tf.util.shuffle(data);
+    // 50% / 50%
+    const splitIndex = Math.floor(N / 2);
 
-    return {
-        train: data.slice(0, 50),
-        test: data.slice(50)
-    };
-}
+    const trainIndices =
+        indices.slice(0, splitIndex);
 
-function gaussianRandom(mean = 0, stdDev = 1) {
+    const testIndices =
+        indices.slice(splitIndex);
 
-    let u = 0;
-    let v = 0;
-
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-
-    return mean +
-        stdDev *
-        Math.sqrt(-2.0 * Math.log(u)) *
-        Math.cos(2.0 * Math.PI * v);
-}
-
-function addNoise(data, variance = 0.05) {
-
-    const stdDev = Math.sqrt(variance);
-
-    return data.map(p => ({
-        x: p.x,
-        y: p.y + gaussianRandom(0, stdDev)
-    }));
-}
-
-
-function createDataset(numPoints, noiseVar) {
-
-    const clean = generateData(numPoints);
-    const { train, test } = splitData(clean);
+    // Hilfsfunktion
+    const pick = (arr, idx) =>
+        idx.map(i => arr[i]);
 
     return {
-        train,
-        test,
-        noisyTrain: addNoise(train, noiseVar),
-        noisyTest: addNoise(test, noiseVar)
+
+        // Unverrauscht
+        xTrain: pick(xData, trainIndices),
+        yTrainClean: pick(yClean, trainIndices),
+
+        xTest: pick(xData, testIndices),
+        yTestClean: pick(yClean, testIndices),
+
+        // Verrauscht
+        yTrainNoisy: pick(yNoisy, trainIndices),
+        yTestNoisy: pick(yNoisy, testIndices)
     };
-}
-
-function generateDatasetAndTrain() {
-    setTimeout(async () => {
-        const numPoints = parseInt(document.getElementById("numPoints").value);
-        const noiseVar = parseFloat(document.getElementById("noiseVar").value);
-
-        currentData = createDataset(numPoints, noiseVar);
-
-        console.log("Dataset erstellt:", currentData);
-
-        renderR1(
-            currentData.train,
-            currentData.test,
-            currentData.noisyTrain,
-            currentData.noisyTest
-        );
-        await rerunAll();
-    },50);
-
 }
 
 function saveDataset() {
-    if (!currentData) {
-        alert("Kein Datensatz vorhanden!");
-        return;
-    }
+
+    if (!currentDataset) return;
 
     const payload = {
-        data: currentData,
-        createdAt: new Date().toISOString(),
-        version: "1.0"
+        dataset: currentDataset,
+        config: {
+            N: currentDataset.xTrain.length,
+            noiseVar: parseFloat(document.getElementById("noiseVar").value)
+        }
     };
 
     localStorage.setItem("dataset", JSON.stringify(payload));
-
-    console.log("Dataset gespeichert");
 }
 
-async function loadDataset() {
-    const raw = localStorage.getItem("dataset");
+function toTensor(x, y) {
 
-    if (!raw) {
-        alert("Kein gespeicherter Datensatz gefunden!");
-        return;
-    }
+    return [
 
-    const parsed = JSON.parse(raw);
-
-    if (!parsed.data) {
-        alert("Ungültiger Datensatz!");
-        return;
-    }
-
-    currentData = parsed.data;
-
-    console.log("Dataset geladen:", parsed);
-
-    renderR1(
-        currentData.train,
-        currentData.test,
-        currentData.noisyTrain,
-        currentData.noisyTest
-    );
-    await rerunAll();
-
+        tf.tensor2d(x, [x.length, 1]),
+        tf.tensor2d(y, [y.length, 1])
+    ];
 }
-
-/* =========================
-   2. MODEL
-========================= */
 
 function createModel() {
 
     const model = tf.sequential();
 
-    const activation = modelConfig.activation;
+    const cfg = modelConfig;
 
-    model.add(tf.layers.dense({
-        inputShape: [1],
-        units: modelConfig.n1,
-        activation
-    }));
+    const units = [cfg.n1, cfg.n2, cfg.n3];
 
-    if (modelConfig.layers >= 2) {
+    // reproduzierbare Initialisierung
+    const seed = 42;
+
+    // Hidden Layers
+    for (let i = 0; i < cfg.layers; i++) {
+
         model.add(tf.layers.dense({
-            units: modelConfig.n2,
-            activation
+
+            units: units[i],
+
+            activation: cfg.activation,
+
+            inputShape: i === 0 ? [1] : undefined,
+
+            // =========================
+            // INITIALIZER AUS CODE 2
+            // =========================
+
+            kernelInitializer:
+                tf.initializers.glorotUniform({
+                    seed
+                }),
+
+            biasInitializer:
+                tf.initializers.zeros()
         }));
     }
 
-    if (modelConfig.layers === 3) {
-        model.add(tf.layers.dense({
-            units: modelConfig.n3,
-            activation
-        }));
-    }
-
+    // Output Layer
     model.add(tf.layers.dense({
+
         units: 1,
-        activation: 'linear'
+
+        kernelInitializer:
+            tf.initializers.glorotUniform({
+                seed
+            }),
+
+        biasInitializer:
+            tf.initializers.zeros()
     }));
+
+    model.compile({
+
+        optimizer: tf.train.adam(0.01),
+
+        loss: "meanSquaredError"
+    });
 
     return model;
 }
 
-async function trainModel(model, trainData, testData, epochs, name) {
+async function evaluateModel(model, xTensor, yTensor) {
 
-    const xTrain = tf.tensor2d(trainData.map(d => d.x), [trainData.length, 1]);
-    const yTrain = tf.tensor2d(trainData.map(d => d.y), [trainData.length, 1]);
+    const predictions = model.predict(xTensor);
 
-    const xTest = tf.tensor2d(testData.map(d => d.x), [testData.length, 1]);
-    const yTest = tf.tensor2d(testData.map(d => d.y), [testData.length, 1]);
+    const mseTensor = tf.metrics.meanSquaredError(
+        yTensor,
+        predictions
+    );
 
-    model.compile({
-        optimizer: tf.train.adam(0.01),
-        loss: 'meanSquaredError'
-    });
+    const mse =
+        (await mseTensor.mean().data())[0];
 
-    const history = {
-        loss: [],
-        val_loss: []
+    const predArray =
+        (await predictions.array())
+            .map(v => v[0]);
+
+    return {
+        mse,
+        predictions: predArray
     };
+}
 
-    await model.fit(xTrain, yTrain, {
-        epochs,
-        batchSize: 32,
-        shuffle: true,
-        validationData: [xTest, yTest],
-        callbacks: {
-            onEpochEnd: async (epoch, logs) => {
+function generateDatasetAndTrain() {
 
-                history.loss.push(logs.loss);
-                history.val_loss.push(logs.val_loss);
+    // Alte Plots löschen
+    document.getElementById("r1_clean").innerHTML = "";
+    document.getElementById("r1_noisy").innerHTML = "";
 
-                console.log(`${name} Epoch ${epoch}: loss=${logs.loss}`);
-            }
-        }
+    // Werte aus UI lesen
+    const N = parseInt(
+        document.getElementById("numPoints").value
+    );
+
+    const noiseVar = parseFloat(
+        document.getElementById("noiseVar").value
+    );
+
+    // Einstellungen speichern
+    localStorage.setItem("param_N", N);
+    localStorage.setItem("param_noiseVar", noiseVar);
+
+    // Datensatz erzeugen
+    const dataset = generateDataset(N, noiseVar);
+    currentDataset = dataset;
+
+    // Unverrauschte Daten
+    drawDatasetChart(
+        "r1_clean",
+
+        dataset.xTrain,
+        dataset.yTrainClean,
+
+        dataset.xTest,
+        dataset.yTestClean,
+
+        "Unverrauschte Daten"
+    );
+
+    // Verrauschte Daten
+    drawDatasetChart(
+        "r1_noisy",
+
+        dataset.xTrain,
+        dataset.yTrainNoisy,
+
+        dataset.xTest,
+        dataset.yTestNoisy,
+
+        "Verrauschte Daten"
+    );
+
+    trainCleanModel().then(async() => {
+        currentModel = createModel();
+        const model = currentModel;
+        await trainR3BestFit();
+        await trainA4Overfit();
     });
-
-    return history;
 }
 
-async function trainCurrentModel() {
-    if (currentModel) {
-        currentModel.dispose();
-    }
-    if (!currentData) {
-        alert("Kein Dataset geladen!");
-        return;
-    }
+async function applyArchitectureChange() {
+console.log("applyArchitectureChange");
+    updateArchitecture();
 
-    const epochs = parseInt(document.getElementById("epochs").value);
+    // UI reset
+    clearPlot("r2_train");
+    clearPlot("r2_test");
+    clearPlot("r3_train");
+    clearPlot("r3_test");
+    clearPlot("r4_train");
+    clearPlot("r4_test");
+
+    await tf.nextFrame();
+
+    // neu trainieren
+    await trainCleanModel();
+    await trainR3BestFit();
+    await trainA4Overfit();
+}
+
+async function trainCleanModel() {
+console.log('trainCleanModel beginnt');
+    // Alte R2 Plots löschen
+    document.getElementById("r2_train").innerHTML = "";
+    document.getElementById("r2_test").innerHTML = "";
+
+    const dataset = currentDataset;
+    logRun("R2", dataset);
+
+    showLoading("r2_train", "Trainingsdaten werden geladen...");
+    showLoading("r2_test", "Testdaten werden geladen...");
+
+    await tf.nextFrame();
+
+    // Tensoren erzeugen
+    const [xTrainT, yTrainT] = toTensor(
+        dataset.xTrain,
+        dataset.yTrainClean
+    );
+
+    const [xTestT, yTestT] = toTensor(
+        dataset.xTest,
+        dataset.yTestClean
+    );
 
     currentModel = createModel();
+    const model = currentModel;
 
-    await trainModel(
-        currentModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        epochs,
-        "Interactive Model"
-    );
+    // Training
+    await model.fit(
 
-    console.log("Training fertig");
-}
+        xTrainT,
+        yTrainT,
 
-
-function testCurrentModel() {
-
-    if (!currentModel || !currentData) return;
-
-    const preds = predict(currentModel, currentData.noisyTest);
-
-    renderPlot(
-        "r4_test",
-        [currentData.noisyTest, preds],
-        "Interactive Test"
-    );
-
-    console.log("Model getestet");
-}
-
-/* =========================
-   3. PREDICTION
-========================= */
-
-function predict(model, data) {
-
-    const xs = tf.tensor2d(
-        data.map(d => d.x),
-        [data.length, 1]
-    );
-
-    const predsTensor = model.predict(xs);
-
-    const preds = Array.from(predsTensor.dataSync()).map((y, i) => ({
-        x: data[i].x,
-        y
-    }));
-
-    xs.dispose();
-    predsTensor.dispose();
-
-    return preds;
-}
-
-async function saveModel() {
-    if (!currentModel) return;
-
-    await currentModel.save("localstorage://my-model");
-    console.log("Model gespeichert");
-}
-
-async function loadModel() {
-    currentModel = await tf.loadLayersModel("localstorage://my-model");
-    console.log("Model geladen");
-}
-
-/* =========================
-   4. VISUALISIERUNG
-========================= */
-
-function renderPlot(id, data, title) {
-
-    tfvis.render.scatterplot(
-        document.getElementById(id),
         {
-            values: data,
-            series: ['Train', 'Test']
-        },
-        {
-            xLabel: 'x',
-            yLabel: 'y',
-            height: 300,
-            title: title
+            epochs: 1000,
+            shuffle: false
         }
     );
-}
 
-function renderLossCurve(history, containerId, title) {
+    // Evaluation
+    const trainEval =
+        await evaluateModel(
+            model,
+            xTrainT,
+            yTrainT
+        );
 
-    tfvis.render.linechart(
-        document.getElementById(containerId),
-        {
-            values: [
-                history.loss.map((y, x) => ({ x, y })),
-                history.val_loss.map((y, x) => ({ x, y }))
-            ],
-            series: ['Train Loss', 'Test Loss']
-        },
-        {
-            xLabel: 'Epoch',
-            yLabel: 'Loss (MSE)',
-            height: 300
-        }
-    );
-}
+    const testEval =
+        await evaluateModel(
+            model,
+            xTestT,
+            yTestT
+        );
 
-/* =========================
-   5. R1–R4 LAYOUT
-========================= */
+    clearPlot("r2_train");
+    clearPlot("r2_test");
 
-function renderR1(cleanTrain, cleanTest, noisyTrain, noisyTest) {
+    // Training Plot
+    drawPredictionChart(
 
-    tfvis.render.scatterplot(
-        document.getElementById('r1_clean'),
-        {
-            values: [
-                cleanTrain,
-                cleanTest
-            ],
-            series: ['Train', 'Test']
-        },
-        { height: 300 }
+        "r2_train",
+
+        dataset.xTrain,
+        dataset.yTrainClean,
+
+        trainEval.predictions,
+
+        "Training",
+        trainEval.mse,
+        { showLine: false }
     );
 
-    tfvis.render.scatterplot(
-        document.getElementById('r1_noisy'),
-        {
-            values: [
-                noisyTrain,
-                noisyTest
-            ],
-            series: ['Train', 'Test']
-        },
-        { height: 300 }
-    );
-}
+    // Test Plot
+    drawPredictionChart(
 
-/* R2: Clean Model */
-function renderR2(model, train, test) {
+        "r2_test",
 
-    const pTrain = predict(model, train);
-    const pTest = predict(model, test);
+        dataset.xTest,
+        dataset.yTestClean,
 
-    tfvis.render.scatterplot(
-        document.getElementById('r2_train'),
-        {
-            values: [
-                train,
-                pTrain
-            ],
-            series: ['True', 'Prediction']
-        },
-        { height: 300 }
+        testEval.predictions,
+
+        "Test",
+        testEval.mse,
+        { showLine: false }
     );
 
-    tfvis.render.scatterplot(
-        document.getElementById('r2_test'),
-        {
-            values: [
-                test,
-                pTest
-            ],
-            series: ['True', 'Prediction']
-        },
-        { height: 300 }
-    );
-}
-/* R3: Best Fit */
-function renderR3(model, train, test) {
+    // Loss Text
+    document.getElementById(
+        "r2_loss_text"
+    ).innerHTML = `
 
-    const pTrain = predict(model, train);
-    const pTest = predict(model, test);
+        <b>Train Loss:</b>
+        ${trainEval.mse.toFixed(6)}
 
-    renderPlot('r3_train', [train, pTrain], 'Best Fit Train');
-    renderPlot('r3_test', [test, pTest], 'Best Fit Test');
-}
+        <br>
 
-/* R4: Overfit */
-function renderR4(model, train, test) {
-
-    const pTrain = predict(model, train);
-    const pTest = predict(model, test);
-
-    renderPlot('r4_train', [train, pTrain], 'Overfit Train');
-    renderPlot('r4_test', [test, pTest], 'Overfit Test');
-}
-
-/* =========================
-   6. MAIN PIPELINE
-========================= */
-
-async function trainBestModel() {
-
-    if (!currentData) {
-        alert("Bitte zuerst Dataset generieren!");
-        return;
-    }
-
-    const epochs = parseInt(document.getElementById("epochs").value);
-
-    currentModel = createModel();
-
-    const history = await trainModel(
-        currentModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        epochs,
-        "Best Fit"
-    );
-
-    console.log("Training fertig");
-
-    renderR3(currentModel, currentData.noisyTrain, currentData.noisyTest);
-
-    renderLossCurve(history, 'r3_loss', 'Training Curve');
-}
-
-function updateArchitecture() {
-
-    // 🔥 Altes Modell aus Speicher entfernen
-    if (currentModel) {
-        currentModel.dispose();
-        currentModel = null;
-
-        console.log("Altes Modell entfernt");
-    }
-
-    // Neue Architektur übernehmen
-    modelConfig.layers = parseInt(
-        document.getElementById("hiddenLayers").value
-    );
-
-    modelConfig.n1 = parseInt(
-        document.getElementById("n1").value
-    );
-
-    modelConfig.n2 = parseInt(
-        document.getElementById("n2").value
-    );
-
-    modelConfig.n3 = parseInt(
-        document.getElementById("n3").value
-    );
-
-    modelConfig.activation =
-        document.getElementById("activation").value;
-
-    console.log("Neue Architektur:", modelConfig);
-}
-
-function renderLossText(id, trainLoss, testLoss) {
-
-    document.getElementById(id).innerHTML = `
-        <p>Train Loss: ${trainLoss.toFixed(6)}</p>
-        <p>Test Loss: ${testLoss.toFixed(6)}</p>
+        <b>Test Loss:</b>
+        ${testEval.mse.toFixed(6)}
     `;
 }
 
-async function initApp() {
 
-    console.log("App startet mit Standardwerten");
+// =========================
+// CHART
+// =========================
 
-    const numPoints = 100;
-    const noiseVar = 0.05;
+function drawDatasetChart(
 
-    currentData = createDataset(numPoints, noiseVar);
+    containerId,
 
-    renderR1(
-        currentData.train,
-        currentData.test,
-        currentData.noisyTrain,
-        currentData.noisyTest
-    );
+    xTrain,
+    yTrain,
 
-    // =========================
-    // R2
-    // =========================
-    const cleanModel = createModel();
+    xTest,
+    yTest,
 
-    const cleanHistory = await trainModel(
-        cleanModel,
-        currentData.train,
-        currentData.test,
-        100,
-        "Clean Model"
-    );
+    title
+) {
 
-    const r2TrainLoss = cleanHistory.loss.at(-1);
-    const r2TestLoss = cleanHistory.val_loss.at(-1);
+    const canvas =
+        document.createElement("canvas");
 
-    console.log("R2 Train Loss:", r2TrainLoss);
-    console.log("R2 Test Loss:", r2TestLoss);
+    document
+        .getElementById(containerId)
+        .appendChild(canvas);
 
-    renderLossText(
-        "r2_loss_text",
-        r2TrainLoss,
-        r2TestLoss
-    );
+    new Chart(canvas, {
 
-//    const predTrain = predict(cleanModel, currentData.train);
-//    const predTest = predict(cleanModel, currentData.test);
+        type: "scatter",
 
-    renderR2(cleanModel, currentData.train, currentData.test);
+        data: {
 
-//    tfvis.render.scatterplot(
-//        document.getElementById('r2_train'),
-//        { values: [currentData.train, predTrain], series: ['True', 'Pred'] },
-//        { height: 300 }
-//    );
+            datasets: [
 
-//    tfvis.render.scatterplot(
-//        document.getElementById('r2_test'),
-//        { values: [currentData.test, predTest], series: ['True', 'Pred'] },
-//        { height: 300 }
-//    );
+                {
+                    label: "Training",
 
-    // =========================
-    // R3
-    // =========================
-    const bestModel = createModel();
+                    data: xTrain.map(
+                        (x, i) => ({
+                            x,
+                            y: yTrain[i]
+                        })
+                    ),
 
-    const bestHistory = await trainModel(
-        bestModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        120,
-        "Best Model"
-    );
+                    backgroundColor: "#3498db",
+                    pointRadius: 3
+                },
 
-    const r3TrainLoss = bestHistory.loss.at(-1);
-    const r3TestLoss = bestHistory.val_loss.at(-1);
+                {
+                    label: "Test",
 
-    console.log("R3 Train Loss:", r3TrainLoss);
-    console.log("R3 Test Loss:", r3TestLoss);
+                    data: xTest.map(
+                        (x, i) => ({
+                            x,
+                            y: yTest[i]
+                        })
+                    ),
 
-    renderLossText(
-        "r3_loss_text",
-        r3TrainLoss,
-        r3TestLoss
-    );
+                    backgroundColor: "#e67e22",
+                    pointRadius: 3
+                }
+            ]
+        },
 
-    renderR3(bestModel, currentData.noisyTrain, currentData.noisyTest);
-    renderLossCurve(bestHistory, 'r3_loss', 'R3 Loss');
+        options: {
 
-    // =========================
-    // R4
-    // =========================
-    const overfitModel = createModel();
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
 
-    const overfitHistory = await trainModel(
-        overfitModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        2000,
-        "Overfit Model"
-    );
+                title: {
+                    display: true,
+                    text: title
+                },
 
-    const r4TrainLoss = overfitHistory.loss.at(-1);
-    const r4TestLoss = overfitHistory.val_loss.at(-1);
+                legend: {
+                    display: true
+                }
+            },
 
-    console.log("R4 Train Loss:", r4TrainLoss);
-    console.log("R4 Test Loss:", r4TestLoss);
+            scales: {
 
-    renderR4(overfitModel, currentData.noisyTrain, currentData.noisyTest);
+                x: {
+                    title: {
+                        display: true,
+                        text: "x"
+                    }
+                },
 
-    console.log("INIT DONE");
+                y: {
+                    title: {
+                        display: true,
+                        text: "y"
+                    }
+                }
+            }
+        }
+    });
 }
 
-function clearR3Plots() {
 
-    const ids = [
-        "r3_train",
-        "r3_test",
-        "r3_loss"
-    ];
+function drawPredictionChart(
+    containerId,
+    x,
+    yTrue,
+    yPred,
+    title,
+    mse,
+    options = {}
+) {
+    const {
+        showLine = true,
+        pointRadius = 3
+    } = options;
 
-    ids.forEach(id => {
+    const canvas = document.createElement("canvas");
+    document.getElementById(containerId).appendChild(canvas);
 
-        const el = document.getElementById(id);
+    const combined = x.map((val, i) => ({
+        x: val,
+        yTrue: yTrue[i],
+        yPred: yPred[i]
+    }));
 
-        if (!el) return;
+    combined.sort((a, b) => a.x - b.x);
 
-        el.innerHTML = `
-            <div class="loading-box">
-                Training läuft...
-            </div>
-        `;
+    new Chart(canvas, {
+        type: "scatter",
+        data: {
+            datasets: [
+                {
+                    label: "Echte Werte",
+                    data: combined.map(p => ({ x: p.x, y: p.yTrue })),
+                    backgroundColor: "#3498db",
+                    pointRadius: 2
+                },
+                {
+                    label: "Vorhersage",
+                    data: combined.map(p => ({ x: p.x, y: p.yPred })),
+                    type: showLine ? "line" : "scatter",
+                    borderColor: "#e67e22",
+                    backgroundColor: "#e67e22",
+                    fill: false,
+                    pointRadius: 3,
+                    showLine: false,
+                    tension: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `${title} | MSE: ${mse.toFixed(6)}`
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: "x" } },
+                y: { title: { display: true, text: "y" } }
+            }
+        }
+    });
+}
+
+// =========================
+// UI
+// =========================
+
+function updateArchitecture() {
+console.log("Architektur")
+    const layers = parseInt(
+        document.getElementById("hiddenLayers")?.value || 2
+    );
+
+    const n1 = parseInt(document.getElementById("n1")?.value || 100);
+    const n2 = parseInt(document.getElementById("n2")?.value || 100);
+    const n3 = parseInt(document.getElementById("n3")?.value || 100);
+
+    modelConfig = {
+        layers,
+        n1,
+        n2,
+        n3,
+        activation: "relu"
+    };
+
+    // optional UI feedback
+    console.log("Architektur aktualisiert:", modelConfig);
+}
+
+function registerSliderUpdates() {
+
+
+    //const $ = id => document.getElementById(id);
+    // Datenpunkte
+    document.getElementById("numPoints").addEventListener("input", e => {
+
+        document.getElementById("numPointsVal").textContent = e.target.value;
+        });
+
+    // Noise
+    document.getElementById("noiseVar")
+        .addEventListener("input", e => {
+
+            document.getElementById("noiseVarVal").textContent = e.target.value;
+
+        });
+
+    // Hidden Layers
+    document.getElementById("hiddenLayers").addEventListener("input", e => {
+        document.getElementById("hiddenLayersVal").textContent = e.target.value;
+        updateArchitecture();
     });
 
-    document.getElementById("r3_loss_text").innerHTML = "";
+    ["n1", "n2", "n3"].forEach(id => {
+
+        const el = document.getElementById(id);
+        const label = document.getElementById(id + "Val");
+
+        if (!el || !label) return;
+
+        el.addEventListener("input", e => {
+            label.textContent = e.target.value;
+            updateArchitecture();
+        });
+    });
+
+    // R3 Epochs
+    const r3Slider = document.getElementById("r3_epochs");
+    const r3Label = document.getElementById("r3_epochsVal");
+
+    if (r3Slider && r3Label) {
+
+        r3Slider.addEventListener("input", e => {
+            r3Label.textContent = e.target.value;
+        });
+        r3Label.textContent = r3Slider.value;
+    }
+    const r3Btn = document.getElementById("r3_retrain");
+
+    if (r3Btn) {
+
+        r3Btn.addEventListener("click", async () => {
+
+            r3Btn.disabled = true;
+
+            document.getElementById("r3_train").innerHTML = "";
+            document.getElementById("r3_test").innerHTML = "";
+            document.getElementById("r3_loss_chart").innerHTML = "";
+
+            await tf.nextFrame();
+
+            await trainR3BestFit();
+
+            r3Btn.disabled = false;
+        });
+    }
+
+    // R4 Epochs
+    document
+        .getElementById("epochs")
+        .addEventListener("input", e => {
+
+            document.getElementById(
+                "epochsVal"
+            ).textContent = e.target.value;
+        });
+
+
+
+}
+
+function redrawAllFromDataset() {
+
+    const dataset = currentDataset;
+
+    // R1
+    clearPlot("r1_clean");
+    clearPlot("r1_noisy");
+
+    drawDatasetChart(
+        "r1_clean",
+        dataset.xTrain,
+        dataset.yTrainClean,
+        dataset.xTest,
+        dataset.yTestClean,
+        "Unverrauschte Daten"
+    );
+
+    drawDatasetChart(
+        "r1_noisy",
+        dataset.xTrain,
+        dataset.yTrainNoisy,
+        dataset.xTest,
+        dataset.yTestNoisy,
+        "Verrauschte Daten"
+    );
+
+    // danach neu trainieren (wichtig für R2–R4)
+    trainCleanModel().then(async () => {
+        await trainR3BestFit();
+        await trainA4Overfit();
+    });
+}
+
+
+function loadDataset() {
+
+    const data = localStorage.getItem("dataset");
+
+    if (!data) {
+        console.warn("Kein gespeichertes Dataset gefunden");
+        return;
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(data);
+    } catch (e) {
+        console.error("Dataset beschädigt:", e);
+        return;
+    }
+
+    console.log("Dataset geladen:", parsed);
+
+    currentDataset = parsed.dataset ?? parsed; // wichtig wegen deiner Save-Struktur
+
+    // =========================
+    // UI synchronisieren
+    // =========================
+
+    const N = currentDataset.xTrain.length;
+
+    document.getElementById("numPoints").value = N;
+    document.getElementById("numPointsVal").textContent = N;
+
+    const noiseVar =
+        parsed.config?.noiseVar ??
+        parseFloat(localStorage.getItem("param_noiseVar")) ??
+        0.05;
+
+    document.getElementById("noiseVar").value = noiseVar;
+    document.getElementById("noiseVarVal").textContent = noiseVar;
+
+    // =========================
+    // Visualisierung
+    // =========================
+    redrawAllFromDataset();
+}
+
+async function saveModel() {
+
+    if (!currentModel) return;
+
+    const config = modelConfig;
+
+    // Modell speichern
+    await currentModel.save("localstorage://ffnn-regression-model");
+
+    // Config separat speichern
+    localStorage.setItem(
+        "ffnn-model-config",
+        JSON.stringify(config)
+    );
+
+    console.log("Model + Config gespeichert ✔");
+}
+
+async function loadModel() {
+
+    try {
+        // 1. Modell laden
+        const model = await tf.loadLayersModel(
+            "localstorage://ffnn-regression-model"
+        );
+
+        currentModel = model;
+
+        // 2. Config laden
+        const configRaw = localStorage.getItem("ffnn-model-config");
+
+        if (!configRaw) {
+            console.warn("Keine Config gefunden");
+            return;
+        }
+
+        const config = JSON.parse(configRaw);
+
+        modelConfig = config;
+
+        console.log("Model + Config geladen ✔", config);
+
+        // Slider setzen
+        document.getElementById("hiddenLayers").value = config.layers;
+        document.getElementById("n1").value = config.n1;
+        document.getElementById("n2").value = config.n2;
+        document.getElementById("n3").value = config.n3;
+
+        // Labels aktualisieren
+        document.getElementById("hiddenLayersVal").textContent = config.layers;
+        document.getElementById("n1Val").textContent = config.n1;
+        document.getElementById("n2Val").textContent = config.n2;
+        document.getElementById("n3Val").textContent = config.n3;
+
+        // Aktivierung (falls vorhanden)
+        if (config.activation) {
+            document.getElementById("activation").value = config.activation;
+        }
+
+        // Wichtig: interne Architektur aktualisieren
+        updateArchitecture();
+
+        console.log("UI synchronisiert ✔");
+    } catch (err) {
+        console.error("Load error:", err);
+    }
 }
 
 async function trainR3BestFit() {
 
-    if (!currentData) {
-        alert("Bitte zuerst Dataset generieren!");
-        return;
-    }
+    const dataset = currentDataset;
+    if (!dataset) return;
+    logRun("R3", dataset);
+
+    // Reset R3 Plots
+    document.getElementById("r3_train").innerHTML = "";
+    document.getElementById("r3_test").innerHTML = "";
+    document.getElementById("r3_loss_chart").innerHTML = "";
+
+    showLoading("r3_train", "Trainingsdaten werden geladen...");
+    showLoading("r3_test", "Testdaten werden geladen...");
+    showLoading("r3_loss_chart", "Loss Chart wird berechnet...");
+
+    await tf.nextFrame();
 
     const epochs = parseInt(
         document.getElementById("r3_epochs").value
     );
 
-    console.log("R3 Training startet:", epochs);
-    clearR3Plots();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    currentModel = createModel();
+    const model = currentModel;
 
-    const bestModel = createModel();
-
-    const history = await trainModel(
-        bestModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        epochs,
-        "Best Fit"
+    // verrauschte Daten
+    const [xTrainT, yTrainT] = toTensor(
+        dataset.xTrain,
+        dataset.yTrainNoisy
     );
 
-    const trainLoss = history.loss.at(-1);
-    const testLoss = history.val_loss.at(-1);
-
-    renderR3(
-        bestModel,
-        currentData.noisyTrain,
-        currentData.noisyTest
+    const [xTestT, yTestT] = toTensor(
+        dataset.xTest,
+        dataset.yTestNoisy
     );
 
-    renderLossCurve(
-        history,
-        "r3_loss",
-        "Best-Fit Loss Curve"
+    // =========================
+    // LOSS CHART (R3)
+    // =========================
+
+    clearPlot("r3_loss_chart");
+    const canvas = document.createElement("canvas");
+    document.getElementById("r3_loss_chart").appendChild(canvas);
+
+    const lossChart = new Chart(canvas, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Train Loss",
+                    data: [],
+                    borderColor: "#2ecc71",
+                    pointRadius: 0,
+                    tension: 0
+                },
+                {
+                    label: "Test Loss",
+                    data: [],
+                    borderColor: "#3498db",
+                    pointRadius: 0,
+                    tension: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: "R3 Lernkurve (Train vs Test MSE)"
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: "Epoche" }
+                },
+                y: {
+                    title: { display: true, text: "Loss (MSE)" }
+                }
+            }
+        }
+    });
+
+    // =========================
+    // TRAINING LOOP
+    // =========================
+    for (let epoch = 1; epoch <= epochs; epoch++) {
+
+        await model.fit(xTrainT, yTrainT, {
+            epochs: 1,
+            shuffle: false
+        });
+
+        // Loss berechnen
+        const trainEval = await evaluateModel(model, xTrainT, yTrainT);
+        const testEval  = await evaluateModel(model, xTestT, yTestT);
+
+        // Chart updaten
+        lossChart.data.labels.push(epoch);
+        lossChart.data.datasets[0].data.push(trainEval.mse);
+        lossChart.data.datasets[1].data.push(testEval.mse);
+        lossChart.update();
+    }
+
+    // =========================
+    // FINAL PREDICTIONS
+    // =========================
+    const trainEvalFinal = await evaluateModel(model, xTrainT, yTrainT);
+    const testEvalFinal  = await evaluateModel(model, xTestT, yTestT);
+
+    clearPlot("r3_train");
+    clearPlot("r3_test");
+
+    drawPredictionChart(
+        "r3_train",
+        dataset.xTrain,
+        dataset.yTrainNoisy,
+        trainEvalFinal.predictions,
+        "R3 Train (verrauscht)",
+        trainEvalFinal.mse,
+        { showLine: false, pointRadius: 3 }
+    );
+
+    drawPredictionChart(
+        "r3_test",
+        dataset.xTest,
+        dataset.yTestNoisy,
+        testEvalFinal.predictions,
+        "R3 Test (verrauscht)",
+        testEvalFinal.mse,
+        { showLine: false, pointRadius: 3 }
     );
 
     document.getElementById("r3_loss_text").innerHTML = `
-        <p>Train Loss: ${trainLoss.toFixed(6)}</p>
-        <p>Test Loss: ${testLoss.toFixed(6)}</p>
+        <b>Train Loss:</b> ${trainEvalFinal.mse.toFixed(6)}
+        <br>
+        <b>Test Loss:</b> ${testEvalFinal.mse.toFixed(6)}
     `;
 }
 
-async function rerunAll() {
 
-    if (!currentData) return;
+async function trainA4Overfit() {
+    const dataset = currentDataset;
+    if (!dataset) return;
 
-    console.log("Re-running full pipeline...");
+    logRun("R4", dataset);
 
-    /* =========================
-       R2 CLEAN
-    ========================= */
-    const cleanModel = createModel();
+    // Reset Plots
+    document.getElementById("r4_train").innerHTML = "";
+    document.getElementById("r4_test").innerHTML = "";
+    document.getElementById("r4_loss_chart").innerHTML = "";
 
-    const cleanHistory = await trainModel(
-        cleanModel,
-        currentData.train,
-        currentData.test,
-        100,
-        "Clean Model"
+    showLoading("r4_train", "Trainingsdaten werden geladen...");
+    showLoading("r4_test", "Testdaten werden geladen...");
+    showLoading("r4_loss_chart", "Loss Chart wird berechnet...");
+
+    await tf.nextFrame();
+
+    console.log("R4 START");
+    console.log("Dataset:", dataset);
+    console.log("r4_train:", document.getElementById("r4_train"));
+    console.log("r4_loss_chart:", document.getElementById("r4_loss_chart"));
+
+
+    const epochs = parseInt(
+        document.getElementById("r4_epochs")?.value || 200
     );
 
-    renderR2(cleanModel, currentData.train, currentData.test);
+    const hiddenUnits = [100, 100];
+    const activation = "relu";
 
-    renderLossText(
-        "r2_loss_text",
-        cleanHistory.loss.at(-1),
-        cleanHistory.val_loss.at(-1)
-    );
+    currentModel = createModel();
+    const model = currentModel;
 
-    /* =========================
-       R3 BEST FIT
-    ========================= */
-    const bestModel = createModel();
 
-    const bestHistory = await trainModel(
-        bestModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        120,
-        "Best Model"
-    );
-
-    renderR3(bestModel, currentData.noisyTrain, currentData.noisyTest);
-
-    renderLossCurve(bestHistory, "r3_loss", "R3 Loss");
-
-    renderLossText(
-        "r3_loss_text",
-        bestHistory.loss.at(-1),
-        bestHistory.val_loss.at(-1)
+    const [xTrainT, yTrainT] = toTensor(
+        dataset.xTrain,
+        dataset.yTrainNoisy
     );
 
 
-    /* =========================
-       R4 OVERFIT
-    ========================= */
-    const overfitModel = createModel();
-
-    const overfitHistory = await trainModel(
-        overfitModel,
-        currentData.noisyTrain,
-        currentData.noisyTest,
-        200,
-        "Overfit Model"
+    const [xTestT, yTestT] = toTensor(
+        dataset.xTest,
+        dataset.yTestNoisy
     );
 
-    renderR4(overfitModel, currentData.noisyTrain, currentData.noisyTest);
+    // =========================
+    // LOSS CHART (A4)
+    // =========================
 
-    renderLossText(
-        "r4_loss_text",
-        overfitHistory.loss.at(-1),
-        overfitHistory.val_loss.at(-1)
-    );
-    cleanModel.dispose();
-    bestModel.dispose();
-    overfitModel.dispose();
-    console.log("Pipeline finished");
-}
+    clearPlot("r4_loss_chart");
+    const canvas = document.createElement("canvas");
+    document.getElementById("r4_loss_chart").appendChild(canvas);
 
+    const lossChart = new Chart(canvas, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Train Loss",
+                    data: [],
+                    borderColor: "#e67e22",
+                    pointRadius: 0,
+                    tension: 0
+                },
+                {
+                    label: "Test Loss",
+                    data: [],
+                    borderColor: "#9b59b6",
+                    pointRadius: 0,
+                    tension: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: "A4 Overfitting: Train vs Test MSE"
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: "Epoche" }
+                },
+                y: {
+                    title: { display: true, text: "Loss (MSE)" }
+                }
+            }
+        }
+    });
 
-document.addEventListener("DOMContentLoaded", () => {
+    // =========================
+    // TRAINING LOOP
+    // =========================
+    for (let epoch = 1; epoch <= epochs; epoch++) {
 
-    initApp();
+        await model.fit(xTrainT, yTrainT, {
+            epochs: 1,
+            shuffle: false
+        });
 
-    function bind(id) {
-        const el = document.getElementById(id);
-        const out = document.getElementById(id + "Val");
+        //  Loss nur messen, nicht zum Steuern nutzen
+        const trainEval = await evaluateModel(model, xTrainT, yTrainT);
+        const testEval  = await evaluateModel(model, xTestT, yTestT);
 
-        if (!el || !out) return;
-
-        el.oninput = () => out.innerText = el.value;
+        lossChart.data.labels.push(epoch);
+        lossChart.data.datasets[0].data.push(trainEval.mse);
+        lossChart.data.datasets[1].data.push(testEval.mse);
+        lossChart.update();
     }
 
-    [
-        "numPoints",
-        "noiseVar",
-        "hiddenLayers",
-        "n1",
-        "n2",
-        "n3",
-        "r3_epochs"
-    ]
-        .forEach(bind);
-});
+    // =========================
+    // FINAL PLOTS
+    // =========================
+    const trainFinal = await evaluateModel(model, xTrainT, yTrainT);
+    const testFinal  = await evaluateModel(model, xTestT, yTestT);
 
+    clearPlot("r4_train");
+    clearPlot("r4_test");
 
-window.generateDatasetAndTrain = generateDatasetAndTrain;
-window.trainCurrentModel = trainCurrentModel;
-window.testCurrentModel = testCurrentModel;
-window.saveDataset = saveDataset;
-window.loadDataset = loadDataset;
-window.saveModel = saveModel;
-window.loadModel = loadModel;
-window.updateArchitecture = updateArchitecture;
-window.trainR3BestFit = trainR3BestFit;
+    drawPredictionChart(
+        "r4_train",
+        dataset.xTrain,
+        dataset.yTrainNoisy,
+        trainFinal.predictions,
+        "A4 Train (Overfit)",
+        trainFinal.mse,
+        { showLine: false }
+    );
+
+    drawPredictionChart(
+        "r4_test",
+        dataset.xTest,
+        dataset.yTestNoisy,
+        testFinal.predictions,
+        "A4 Test (Overfit)",
+        testFinal.mse,
+        { showLine: false }
+    );
+
+    document.getElementById("r4_loss_text").innerHTML = `
+        <b>Train Loss:</b> ${trainFinal.mse.toFixed(6)}
+        <br>
+        <b>Test Loss:</b> ${testFinal.mse.toFixed(6)}
+    `;
+}

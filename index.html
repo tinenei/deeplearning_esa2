@@ -1,18 +1,14 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <div class="card">
-    <h1>TensorFlow.js Regression Dashboard</h1>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
-    <p>
-      Interaktive Visualisierung von Regression,
-      Gaußschem Rauschen und Overfitting mit
-      Feed-Forward Neural Networks.
-    </p>
-  </div>
-  <!-- CSS aus externer Datei -->
+  <title>TensorFlow.js Regression Dashboard</title>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="style.css">
 
   <!-- TensorFlow.js -->
@@ -20,92 +16,173 @@
 
   <!-- tfjs-vis -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
+
+  <!-- SeedRandom -->
+  <script src="https://cdn.jsdelivr.net/npm/seedrandom@3.0.5/seedrandom.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
 <div class="container">
 
-  <!-- Einführung -->
+  <!-- HEADER -->
   <div class="card">
-    <h2>Einführung</h2>
+    <h1>FFNN Regression mit TensorFlow.js</h1>
+
     <p>
-      In diesem Beispiel werden synthetische Regressionsdaten erzeugt
-      und anschließend mit Gaußschem Rauschen verändert.
-    </p>
-    <p>
-      Links XX Daten, rechts verrauschte Daten.
+      Interaktive Visualisierung von Regression,
+      Gaussian Noise und Overfitting
+      mit Feed-Forward Neural Networks.
     </p>
   </div>
 
-  <!-- Benutzereingaben -->
+  <!-- INTRO -->
   <div class="card">
-    <h2>Benutzereingaben</h2>
+    <h2>Einführung</h2>
 
-    <h3>Dataset</h3>
+    <p>
+      Es wird eine unbekannte Ground-Truth Funktion simuliert.
+      Daraus werden Trainings- und Testdaten erzeugt.
+    </p>
 
-    <label>Datapoints (50–500):</label>
-    <input type="range" id="numPoints" min="50" max="500" value="100">
+    <p>
+      Zusätzlich wird Gaussian Noise auf die Labels angewendet,
+      um realistisches Datenrauschen zu simulieren.
+    </p>
+
+    <p>
+      Ziel ist es, Best-Fit und Overfitting
+      mit unterschiedlichen Trainings-Epochen zu beobachten.
+    </p>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="card">
+
+    <h2>Parameter</h2>
+
+    <!-- DATA -->
+    <h3>Datensatz</h3>
+
+    <label>Datenpunkte:</label>
+    <input type="range"
+           id="numPoints"
+           min="50"
+           max="500"
+           value="100">
+
     <span id="numPointsVal">100</span>
 
-    <br>
+    <br><br>
 
-    <label>Noise Variance (0.01–0.5):</label>
-    <input type="range" id="noiseVar" min="0.01" max="0.5" step="0.01" value="0.05">
+    <label>Noise Variance:</label>
+    <input type="range"
+           id="noiseVar"
+           min="0.01"
+           max="0.5"
+           step="0.01"
+           value="0.05">
+
     <span id="noiseVarVal">0.05</span>
 
     <br><br>
 
-    <button onclick="generateDatasetAndTrain()">Daten neu generieren</button>
+    <button onclick="generateDatasetAndTrain()">
+      Daten neu generieren
+    </button>
+
+    <button onclick="saveDataset()">
+      Dataset speichern
+    </button>
+
+    <button onclick="loadDataset()">
+      Dataset laden
+    </button>
 
     <hr>
 
+    <!-- MODEL -->
     <h3>Modell Architektur</h3>
 
-    <label>Hidden Layers (1–3):</label>
-    <input type="range" id="hiddenLayers" min="1" max="3" value="2">
+    <label>Hidden Layers:</label>
+    <input type="range"
+           id="hiddenLayers"
+           min="1"
+           max="3"
+           value="2">
+
     <span id="hiddenLayersVal">2</span>
 
-    <br>
+    <br><br>
 
     <label>Layer 1 Neurons:</label>
-    <input type="range" id="n1" min="1" max="500" value="100">
+    <input type="range"
+           id="n1"
+           min="1"
+           max="300"
+           value="100">
+
     <span id="n1Val">100</span>
 
-    <br>
+    <br><br>
 
     <label>Layer 2 Neurons:</label>
-    <input type="range" id="n2" min="1" max="500" value="100">
+    <input type="range"
+           id="n2"
+           min="1"
+           max="300"
+           value="100">
+
     <span id="n2Val">100</span>
 
-    <br>
+    <br><br>
 
     <label>Layer 3 Neurons:</label>
-    <input type="range" id="n3" min="1" max="500" value="100">
+    <input type="range"
+           id="n3"
+           min="1"
+           max="300"
+           value="100">
+
     <span id="n3Val">100</span>
 
-    <br>
+    <br><br>
 
-    <label>Activation:</label>
+    <label>Aktivierungsfunktion:</label>
+
     <select id="activation">
       <option value="relu" selected>ReLU</option>
       <option value="tanh">tanh</option>
+      <option value="elu">elu</option>
     </select>
 
     <br><br>
 
-    <button onclick="updateArchitecture()">Architektur ändern</button>
+    <button onclick="applyArchitectureChange()">
+      Architektur übernehmen
+    </button>
 
-    <hr>
+    <button onclick="saveModel()">
+      Modell speichern
+    </button>
+
+    <button onclick="loadModel()">
+      Modell laden
+    </button>
 
   </div>
 
-  <!-- Visualisierungen -->
+  <!-- ========================= -->
+  <!-- R1 -->
+  <!-- ========================= -->
+
   <div class="card">
 
-    <h2>R1 - Datensätze</h2>
+    <h2>R1 — Datensätze</h2>
 
-    <!-- R1 -->
     <div class="row">
 
       <div class="plot-wrapper">
@@ -121,35 +198,48 @@
     </div>
   </div>
 
+  <!-- ========================= -->
+  <!-- R2 -->
+  <!-- ========================= -->
+
   <div class="card">
 
-    <h2>R2 - Vorhersage des Modells, auf Basis der unverrauschten Daten</h2>
+    <h2>R2 — Modell ohne Rauschen</h2>
 
-    <!-- R1 -->
     <div class="row">
 
       <div class="plot-wrapper">
-        <h3>Trainingsdaten</h3>
+        <h3>Training</h3>
         <div class="plot-box" id="r2_train"></div>
       </div>
 
       <div class="plot-wrapper">
-        <h3>Testdaten</h3>
+        <h3>Test</h3>
         <div class="plot-box" id="r2_test"></div>
       </div>
+
     </div>
-    <div id="r2_loss_text" class="loss-box"></div>
+
+    <div id="r2_loss_text"
+         class="loss-box"></div>
 
   </div>
+
+  <!-- ========================= -->
+  <!-- R3 CONTROL -->
+  <!-- ========================= -->
+
   <div class="card">
 
-    <h3>R3 Best-Fit Control</h3>
+    <h2>R3 Steuerung (Best-Fit)</h2>
 
     <label>Epochs:</label>
+
     <input type="range"
            id="r3_epochs"
-           min="10"
-           max="1000"
+           min="30"
+           max="250"
+           step = "10"
            value="120">
 
     <span id="r3_epochsVal">120</span>
@@ -157,65 +247,175 @@
     <br><br>
 
     <button onclick="trainR3BestFit()">
-      Best-Fit Modell trainieren
+      Best-Fit trainieren
     </button>
 
   </div>
+
+  <!-- ========================= -->
+  <!-- R3 -->
+  <!-- ========================= -->
+
   <div class="card">
 
-    <h2>R3 - Best Fit</h2>
-    <p>
-      Vorhersage des besten Modells, trainiert auf verrauschten Daten
-    </p>
+    <h2>R3 — Best-Fit Modell</h2>
 
-    <!-- R1 -->
     <div class="row">
 
       <div class="plot-wrapper">
-        <h3>Trainingsdaten</h3>
+        <h3>Training</h3>
         <div class="plot-box" id="r3_train"></div>
       </div>
 
       <div class="plot-wrapper">
-        <h3>Testdaten</h3>
+        <h3>Test</h3>
         <div class="plot-box" id="r3_test"></div>
       </div>
+
     </div>
-    <div class="plot-box" id="r3_loss"></div>
-    <div id="r3_loss_text" class="loss-box"></div>
+
+    <div class="plot-wrapper">
+      <h3>Loss Verlauf</h3>
+      <div class="plot-box" id="r3_loss_chart"></div>
+    </div>
+
+    <div id="r3_loss_text"
+         class="loss-box"></div>
+
   </div>
 
+  <!-- ========================= -->
+  <!-- R4 CONTROL -->
+  <!-- ========================= -->
 
   <div class="card">
 
-    <h3>R4 Training Control (Overfit)</h3>
+    <h2>R4 Steuerung (Overfit)</h2>
 
     <label>Epochs:</label>
-    <input type="range" id="epochs" min="50" max="2000" value="200">
+
+    <input type="range"
+           id="epochs"
+           min="100"
+           max="5000"
+           value="200">
+
     <span id="epochsVal">200</span>
+
+    <br><br>
+
+    <button onclick="trainA4Overfit()">
+      Overfit neu trainieren
+    </button>
 
   </div>
 
+  <!-- ========================= -->
+  <!-- R4 -->
+  <!-- ========================= -->
+
   <div class="card">
 
-    <h2>R4 - Overfit Model</h2>
+    <h2>R4 — Overfit Modell</h2>
 
     <div class="row">
 
       <div class="plot-wrapper">
-        <h3>Unverrauschte Daten</h3>
+        <h3>Training</h3>
         <div class="plot-box" id="r4_train"></div>
       </div>
 
       <div class="plot-wrapper">
-        <h3>Verrauschte Daten</h3>
+        <h3>Test</h3>
         <div class="plot-box" id="r4_test"></div>
       </div>
 
     </div>
-    <div id="r4_loss_text" class="loss-box"></div>
+
+    <div class="plot-wrapper">
+      <h3>Loss Chart</h3>
+      <div class="plot-box" id="r4_loss_chart"></div>
+      <div id="r4_loss_text" class="loss-box"></div>
+    </div>
+
+ </div>
+
+  <!-- ========================= -->
+  <!-- DISCUSSION -->
+  <!-- ========================= -->
+
+  <div class="card">
+
+    <h2>Diskussion</h2>
+
+    <p>
+      Ohne Rauschen generalisiert das Modell sehr gut,
+      da Trainings- und Testdaten dieselbe Funktion repräsentieren.
+    </p>
+
+    <p>
+      Mit zunehmenden Trainings-Epochen auf verrauschten Daten
+      beginnt das Modell, das Rauschen mitzulernen.
+    </p>
+
+    <p>
+      Dadurch verbessert sich der Trainings-Loss,
+      während sich der Test-Loss verschlechtert.
+      Dieses Verhalten beschreibt Overfitting.
+    </p>
+
   </div>
+
+  <!-- ========================= -->
+  <!-- DOCUMENTATION -->
+  <!-- ========================= -->
+
+  <div class="card">
+
+    <h2>Dokumentation</h2>
+
+    <h3>Technisch</h3>
+
+    <ul>
+      <li>
+        TensorFlow.js wird zum Erstellen und Trainieren
+        der neuronalen Netze verwendet.
+      </li>
+
+      <li>
+        tfjs-vis wird zur Visualisierung
+        der Daten und Trainingskurven genutzt.
+      </li>
+
+      <li>
+        seedrandom wird verwendet,
+        um reproduzierbare Datensätze zu erzeugen.
+      </li>
+    </ul>
+
+    <h3>Fachlich</h3>
+
+    <ul>
+      <li>
+        Die Daten werden deterministisch generiert
+        und zufällig in Trainings- und Testdaten getrennt.
+      </li>
+
+      <li>
+        Es werden sowohl unverrauschte
+        als auch verrauschte Datensätze untersucht.
+      </li>
+
+      <li>
+        Best-Fit und Overfitting werden
+        über unterschiedliche Trainings-Epochen analysiert.
+      </li>
+    </ul>
+
+  </div>
+
 </div>
+
 <script src="index.js"></script>
 
 </body>
