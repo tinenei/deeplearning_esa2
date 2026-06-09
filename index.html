@@ -30,32 +30,32 @@
 
   <!-- HEADER -->
   <div class="card">
-    <h1>FFNN Regression mit TensorFlow.js</h1>
+    <h1>Deep Learning: EA2 - Regression mit FFNN</h1>
 
     <p>
-      Interaktive Visualisierung von Regression,
-      Gaussian Noise und Overfitting
-      mit Feed-Forward Neural Networks.
+      <b>Thema:</b> Regression Lernen mit Feed-Forward Neural Network (FFNN) als Model und mit TensorFlow.js (TFJS) als Framework/API.
     </p>
-  </div>
-
-  <!-- INTRO -->
-  <div class="card">
-    <h2>Einführung</h2>
-
     <p>
-      Es wird eine unbekannte Ground-Truth Funktion simuliert.
-      Daraus werden Trainings- und Testdaten erzeugt.
+      <b>Kompetenzerwerb/Lernziele:</b>
+      <ul>
+    <li>Verstehen, wie ein neuronales Netz eine Funktion approximiert.</li>
+      <li>Ein neuronales Netz anhand von Daten trainieren können.</li>
+    <li>Das Phänomen des Overfittings verstehen und behandeln können.</li>
+  </ul>
     </p>
-
+    <p><b>Aufgabenstellung:</b></p>
     <p>
-      Zusätzlich wird Gaussian Noise auf die Labels angewendet,
-      um realistisches Datenrauschen zu simulieren.
-    </p>
-
-    <p>
-      Ziel ist es, Best-Fit und Overfitting
-      mit unterschiedlichen Trainings-Epochen zu beobachten.
+      Nutzen Sie ein Feed-Forward Neural Network (FFNN) als Modell zur Regression der reellwertigen Funktion:  y(x) = 0.5*(x+0.8)*(x+1.8)*(x-0.2)*(x-0.3)*(x-1.9)+1 auf dem Interval [-2,+2] (Definitionsmenge). Wir wollen simulieren, wie es im richtigen Leben ist, das bedeutet, Sie kennen die Funktion y(x) nicht (das ist die unbekannte Ground-Truth). Stattdessen generieren Sie Daten von dieser Funktion und verrauschen diese.
+    </p><p>
+      <b>A1)</b> Zum Erzeugen der Daten generieren Sie N=100 zufällige, gleich-verteilte x Werte aus dem Intervall [-2,+2] (die Verteilung ist dabei flach, es gibt keine Anhäufung von x-Werten z. B. um null). Zu den x-Werten berechnen Sie y(x). Sie haben dann einen unverrauschten Datensatz mit 100 (x, y) = (Input, Output-Lable) Paaren. Diesen Datensatz teilen Sie auf in N/2=50 Trainingsdaten-Paare und N/2=50 Testdaten-Paare (die Aufteilung ist zufällig). Dann verrauschen Sie die Daten künstlich (Trainingsdaten und Testdaten). Dazu addieren Sie zu y (also zum Output/Lable) normal-verteiles Rauschen (Gaussian Noise) mit einer Varianz von V=0.05 (die x-Werte/Input bleiben dabei unverrauscht, wir simulieren nur sogenanntes Lable-Rauschen). Sie haben nun zwei Datensätze, einen ohne und einen mit Rauschen, jeweils aufgeteilt in Trainingsdaten und Testdaten.
+  </p><p>
+    <b>A2)</b> Den unverrauschten Datensatz benutzen Sie, um ein erstes Model zu trainieren. Da es kein Rauschen gibt (alle Daten liegen schön auf der Ground-Truth Funktion), sollte Ihr trainiertes Modell auf den Testdaten etwa genauso gut abschneiden wie auf den Trainingsdaten (Loss_train = Loss_test). Denn ohne Rauschen kann kein Overfitting auftreten (überlegen Sie, warum nicht).
+  </p><p>
+      Trainieren Sie zwei Modelle auf dem verrauschten Datensatz mit unterschiedlicher Anzahl an Trainings-Epochen (Epochs).
+  </p><p>
+      <b>A3)</b> Das erste Modell (Best-Fit) soll möglichst gut generalisieren, also im Test einen möglichst kleinen Loss (MSE) aufweisen.
+  </p><p>
+      <b>A4)</b> Versuchen Sie das zweite Model (Over-Fit) so lange zu trainieren, bis es overfittet, bis also der Trainings-Loss (MSE) deutlich besser (geringer) ist als der auf den Testdaten.
     </p>
   </div>
 
@@ -297,10 +297,10 @@
     <input type="range"
            id="epochs"
            min="100"
-           max="5000"
-           value="200">
+           max="10000"
+           value="2000">
 
-    <span id="epochsVal">200</span>
+    <span id="r4_epochs">2000</span>
 
     <br><br>
 
@@ -346,76 +346,203 @@
 
   <div class="card">
 
-    <h2>Diskussion</h2>
 
-    <p>
-      Ohne Rauschen generalisiert das Modell sehr gut,
-      da Trainings- und Testdaten dieselbe Funktion repräsentieren.
-    </p>
+      <div class="report">
 
-    <p>
-      Mit zunehmenden Trainings-Epochen auf verrauschten Daten
-      beginnt das Modell, das Rauschen mitzulernen.
-    </p>
+      <h2>Setting</h2>
 
-    <p>
-      Dadurch verbessert sich der Trainings-Loss,
-      während sich der Test-Loss verschlechtert.
-      Dieses Verhalten beschreibt Overfitting.
-    </p>
+      <p>
+        Um das Verhalten des FFNN zu untersuchen, wurde mit den folgenden Parametern experimentiert:
+      </p>
 
+      <ul>
+        <li><b>Daten:</b> Anzahl der Datenpunkte (50–500), Varianz (0.01–0.5)</li>
+        <li><b>Modell-Architektur:</b> Anzahl Hidden Layers (1–3), Neuronen pro Layer (100–500), Aktivierungsfunktion (ReLU, tanh, elu)</li>
+        <li><b>Training:</b> Anzahl der Epochs bei Best-Fit und Overfitting</li>
+      </ul>
+
+      <h3>Datenpunkte</h3>
+      <p>
+        Die Anwendung startet standardmäßig mit 100 Datenpunkten und einer Varianz von 0.05.
+        Eine Verringerung der Datenmenge führte schnell zu Überanpassung.
+        Das Modell lernte die Trainingsdaten sehr schnell, konnte jedoch nicht mehr gut generalisieren,
+        was zu frühem Overfitting führte.
+        Eine Erhöhung der Datenmenge verbesserte die Generalisierung und verzögerte oder verhinderte Overfitting.
+      </p>
+
+      <h3>Varianz</h3>
+      <p>
+        Die Varianz liegt initial bei 0.05.
+        Eine Verringerung auf sehr kleine Werte reduziert den Einfluss des Rauschens deutlich,
+        sodass die Daten nahezu der Grundfunktion entsprechen.
+      </p>
+
+      <h3>Modellarchitektur</h3>
+      <p>
+        Durch eine Erhöhung der Anzahl der Hidden Layers und Neuronen pro Layer lernt das Modell schneller und flexibler.
+        Der Best-Fit wird früher erreicht, jedoch tritt Overfitting bei hoher Modellkomplexität und hoher Varianz schneller auf.
+      </p>
+
+      <hr>
+
+      <h2>Diskussion</h2>
+
+      <p>
+        Für die Regression der gegebenen Funktion wurde ein Feedforward Neural Network (FFNN) in TensorFlow.js eingesetzt.
+        Die Architektur ist flexibel konfigurierbar und besteht standardmäßig aus zwei Hidden-Layern mit jeweils 100 Neuronen
+        sowie ReLU-Aktivierung. Als Optimierer wird Adam mit einer Lernrate von 0.01 verwendet.
+      </p>
+
+      <p>
+        Die Trainingsdaten werden ohne explizite Batch-Definition verarbeitet (Full-Batch bzw. TensorFlow.js-Standardverhalten).
+        Die Anzahl der Datenpunkte (N) sowie die Rauschvarianz (V) sind über eine UI steuerbar
+        und wurden typischerweise mit N = 100 und V = 0.05 gewählt.
+      </p>
+
+      <p>
+        Die Daten werden zufällig im Intervall [-2, 2] erzeugt und anschließend in Trainings- und Testdaten (je 50%)
+        aufgeteilt. Es existieren sowohl unverrauschte als auch verrauschte Varianten, wodurch ein Vergleich zwischen
+        idealem und realitätsnahem Lernen möglich ist.
+      </p>
+
+      <h3>(R2) Modellverhalten unverrauschte Daten</h3>
+      <p>
+        Beim Training auf unverrauschten Daten (R2) mit 1000 Epochen zeigt das Modell ein nahezu perfektes Fit-Verhalten.
+        Trainings- und Test-MSE sind nahezu identisch und sehr klein, was bestätigt, dass ohne Rauschen kein Overfitting auftritt.
+      </p>
+
+      <h3>(R3) Best-Fit auf verrauschten Daten</h3>
+      <p>
+        Für die verrauschten Daten wird die Anzahl der Epochen über einen Slider (30–250) gesteuert.
+        Im Bereich von etwa 100–200 Epochen zeigt das Modell ein stabiles Generalisierungsverhalten.
+        Trainings- und Test-Loss liegen dabei nah beieinander.
+      </p>
+
+      <p>
+        Zusätzlich wird der Loss-Verlauf während des Trainings berechnet und visualisiert,
+        sodass die Entwicklung von Trainings- und Testfehlern nachvollziehbar ist.
+      </p>
+
+      <h3>(R4) Overfitting-Analyse</h3>
+      <p>
+        Im Overfitting-Szenario wird die Anzahl der Epochen über einen separaten Slider (typisch 100–10000) gesteuert.
+        Das Training erfolgt iterativ mit jeweils einer Epoche pro Schritt, wodurch ein vollständiger Loss-Verlauf entsteht.
+      </p>
+
+      <ul>
+        <li>Der Trainings-Loss sinkt kontinuierlich</li>
+        <li>Der Test-Loss beginnt nach einer gewissen Anzahl an Epochen wieder zu steigen</li>
+      </ul>
+
+      <p>
+        Dies zeigt, dass das Modell zunehmend das Rauschen der Trainingsdaten lernt,
+        anstatt die zugrunde liegende Funktion zu generalisieren.
+      </p>
+
+      <h3>Einfluss von Architektur und Daten</h3>
+      <p>
+        Größere Modelle (mehr Layer und Neuronen) neigen schneller zu Overfitting,
+        insbesondere bei kleinen Datensätzen oder hoher Rauschvarianz.
+      </p>
+
+      <p>
+        Die Aktivierungsfunktion beeinflusst die Trainingsstabilität, wobei ReLU sich als besonders robust erwiesen hat.
+      </p>
+
+      <p>
+        Eine Erhöhung der Datenmenge verbessert die Generalisierung,
+        reduziert die Varianz zwischen Train- und Testfehler und verzögert Overfitting deutlich.
+      </p>
+
+      <h2>Fazit</h2>
+
+      <p>
+        Das Experiment zeigt, dass das Lernverhalten eines neuronalen Netzes stark von Modellkomplexität,
+        Trainingsdauer, Datenmenge und Rauschlevel abhängt.
+        Durch die interaktive Steuerung dieser Parameter wird der Übergang von Underfitting über gutes Generalisieren
+        bis hin zu Overfitting direkt beobachtbar.
+      </p>
+
+    </div>
   </div>
 
   <!-- ========================= -->
   <!-- DOCUMENTATION -->
   <!-- ========================= -->
 
+
   <div class="card">
 
     <h2>Dokumentation</h2>
 
-    <h3>Technisch</h3>
 
-    <ul>
-      <li>
-        TensorFlow.js wird zum Erstellen und Trainieren
-        der neuronalen Netze verwendet.
-      </li>
+      <!-- ========================= -->
+      <!-- 1) TECHNISCH -->
+      <!-- ========================= -->
+      <h3>1) Technisch</h3>
 
-      <li>
-        tfjs-vis wird zur Visualisierung
-        der Daten und Trainingskurven genutzt.
-      </li>
+      <p>
+        In der Lösung wurden folgende Frameworks und Libraries verwendet:
+      </p>
 
-      <li>
-        seedrandom wird verwendet,
-        um reproduzierbare Datensätze zu erzeugen.
-      </li>
-    </ul>
+      <ul>
+        <li>
+          <b>TensorFlow.js</b>
+          zur Implementierung und Ausführung des neuronalen Netzes (FFNN) direkt im Browser.
+          Das Training, die Evaluation sowie die Inferenz erfolgen vollständig clientseitig.
+        </li>
 
-    <h3>Fachlich</h3>
+        <li>
+          <b>Chart.js</b>
+          zur Visualisierung der Trainings- und Test-Loss-Kurven sowie der Modellvorhersagen.
+        </li>
 
-    <ul>
-      <li>
-        Die Daten werden deterministisch generiert
-        und zufällig in Trainings- und Testdaten getrennt.
-      </li>
+       </ul>
 
-      <li>
-        Es werden sowohl unverrauschte
-        als auch verrauschte Datensätze untersucht.
-      </li>
+      <p>
+        Das gesamte Training läuft vollständig im Browser ohne Backend. Die Modelle werden
+        dynamisch erzeugt und bei Bedarf neu initialisiert. Die Lernkurven werden zum Teil iterativ
+        aufgebaut.
+      </p>
 
-      <li>
-        Best-Fit und Overfitting werden
-        über unterschiedliche Trainings-Epochen analysiert.
-      </li>
-    </ul>
+      <p>
+        Zusätzlich stehen interaktive UI-Elemente (Slider) zur Verfügung, mit denen
+        Datenparameter (Anzahl der Datenpunkte, Rauschvarianz) sowie die Modellarchitektur
+        (Anzahl der Hidden-Layer, Neuronen, Aktivierungsfunktion) dynamisch verändert werden können.
+      </p>
 
+      <p>
+        Während des Trainings werden Ladezustände und Fortschrittsindikatoren angezeigt, um den
+        Trainingsprozess transparent darzustellen.
+      </p>
+
+
+      <!-- ========================= -->
+      <!-- 2) FACHLICH -->
+      <!-- ========================= -->
+      <h3>2) Fachlich</h3>
+
+      <p>
+        Die Implementierung setzt die Regression einer
+        nichtlinearen Funktion um. Zunächst wird ein synthetischer Datensatz im Intervall
+        [-2, 2] erzeugt, der anschließend in Trainings- und Testdaten (50/50) aufgeteilt wird.
+      </p>
+
+      <p>
+        Es werden zwei Varianten des Datensatzes verwendet:
+      </p>
+
+      <ul>
+        <li><b>Unverrauscht:</b> zur Analyse des idealen Lernverhaltens ohne Störeinflüsse</li>
+        <li><b>Verrauscht:</b> mit Gaussian Noise zur Simulation realitätsnaher Daten</li>
+      </ul>
+
+      <p>
+        Für das Training wird ein Feedforward Neural Network (FFNN) eingesetzt.
+        Die Architektur ist flexibel konfigurierbar (1–3 Hidden-Layer, variable Neuronenzahl,
+        Aktivierungsfunktionen: ReLU, tanh, elu). Als Optimizer wird Adam 0.01 verwendet.
+      </p>
   </div>
-
-</div>
-
 <script src="index.js"></script>
 
 </body>

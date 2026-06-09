@@ -616,8 +616,8 @@ function drawPredictionChart(
                     label: "Vorhersage",
                     data: combined.map(p => ({ x: p.x, y: p.yPred })),
                     type: showLine ? "line" : "scatter",
-                    borderColor: "#e67e22",
-                    backgroundColor: "#e67e22",
+                    borderColor: "#e74c3c",
+                    backgroundColor: "#e74c3c",
                     fill: false,
                     pointRadius: 3,
                     showLine: false,
@@ -676,7 +676,7 @@ function registerSliderUpdates() {
     document.getElementById("numPoints").addEventListener("input", e => {
 
         document.getElementById("numPointsVal").textContent = e.target.value;
-        });
+    });
 
     // Noise
     document.getElementById("noiseVar")
@@ -737,17 +737,21 @@ function registerSliderUpdates() {
     }
 
     // R4 Epochs
-    document
-        .getElementById("epochs")
-        .addEventListener("input", e => {
+    const r4Slider = document.getElementById("epochs");
+    const r4Label = document.getElementById("r4_epochs");
 
-            document.getElementById(
-                "epochsVal"
-            ).textContent = e.target.value;
+    if (r4Slider && r4Label) {
+
+        // Label initial synchronisieren
+        r4Label.textContent = r4Slider.value;
+
+        // Live Update beim Sliden
+        r4Slider.addEventListener("input", e => {
+            r4Label.textContent = e.target.value;
         });
 
 
-
+    }
 }
 
 function redrawAllFromDataset() {
@@ -900,61 +904,72 @@ async function trainR3BestFit() {
 
     const dataset = currentDataset;
     if (!dataset) return;
+
     logRun("R3", dataset);
 
-    // Reset R3 Plots
     document.getElementById("r3_train").innerHTML = "";
     document.getElementById("r3_test").innerHTML = "";
     document.getElementById("r3_loss_chart").innerHTML = "";
 
-    showLoading("r3_train", "Trainingsdaten werden geladen...");
-    showLoading("r3_test", "Testdaten werden geladen...");
-    showLoading("r3_loss_chart", "Loss Chart wird berechnet...");
+    showLoading("r3_train", "Training...");
+    showLoading("r3_test", "Test...");
+    showLoading("r3_loss_chart", "Training läuft...");
 
     await tf.nextFrame();
 
-    const epochs = parseInt(
-        document.getElementById("r3_epochs").value
-    );
+    const epochs = parseInt(document.getElementById("r3_epochs").value);
 
     currentModel = createModel();
     const model = currentModel;
 
-    // verrauschte Daten
-    const [xTrainT, yTrainT] = toTensor(
-        dataset.xTrain,
-        dataset.yTrainNoisy
-    );
-
-    const [xTestT, yTestT] = toTensor(
-        dataset.xTest,
-        dataset.yTestNoisy
-    );
+    const [xTrainT, yTrainT] = toTensor(dataset.xTrain, dataset.yTrainNoisy);
+    const [xTestT, yTestT] = toTensor(dataset.xTest, dataset.yTestNoisy);
 
     // =========================
-    // LOSS CHART (R3)
+    // Loss SPEICHERN (nicht plotten!)
     // =========================
+    const trainLoss = [];
+    const testLoss = [];
 
-    clearPlot("r3_loss_chart");
+    // =========================
+    // TRAINING (ohne Chart)
+    // =========================
+    for (let epoch = 1; epoch <= epochs; epoch++) {
+
+        await model.fit(xTrainT, yTrainT, {
+            epochs: 1,
+            shuffle: false
+        });
+
+        const trainEval = await evaluateModel(model, xTrainT, yTrainT);
+        const testEval = await evaluateModel(model, xTestT, yTestT);
+
+        trainLoss.push(trainEval.mse);
+        testLoss.push(testEval.mse);
+    }
+
+    const container = document.getElementById("r3_loss_chart");
+    container.innerHTML = "";
+
     const canvas = document.createElement("canvas");
-    document.getElementById("r3_loss_chart").appendChild(canvas);
+    container.appendChild(canvas);
 
-    const lossChart = new Chart(canvas, {
+    new Chart(canvas, {
         type: "line",
         data: {
-            labels: [],
+            labels: trainLoss.map((_, i) => i + 1),
             datasets: [
                 {
                     label: "Train Loss",
-                    data: [],
-                    borderColor: "#2ecc71",
+                    data: trainLoss,
+                    borderColor: "#3498db",
                     pointRadius: 0,
                     tension: 0
                 },
                 {
                     label: "Test Loss",
-                    data: [],
-                    borderColor: "#3498db",
+                    data: testLoss,
+                    borderColor: "#e74c3c",
                     pointRadius: 0,
                     tension: 0
                 }
@@ -966,46 +981,17 @@ async function trainR3BestFit() {
             plugins: {
                 title: {
                     display: true,
-                    text: "R3 Lernkurve (Train vs Test MSE)"
-                }
-            },
-            scales: {
-                x: {
-                    title: { display: true, text: "Epoche" }
-                },
-                y: {
-                    title: { display: true, text: "Loss (MSE)" }
+                    text: "R3 Lernkurve (final)"
                 }
             }
         }
     });
 
     // =========================
-    // TRAINING LOOP
-    // =========================
-    for (let epoch = 1; epoch <= epochs; epoch++) {
-
-        await model.fit(xTrainT, yTrainT, {
-            epochs: 1,
-            shuffle: false
-        });
-
-        // Loss berechnen
-        const trainEval = await evaluateModel(model, xTrainT, yTrainT);
-        const testEval  = await evaluateModel(model, xTestT, yTestT);
-
-        // Chart updaten
-        lossChart.data.labels.push(epoch);
-        lossChart.data.datasets[0].data.push(trainEval.mse);
-        lossChart.data.datasets[1].data.push(testEval.mse);
-        lossChart.update();
-    }
-
-    // =========================
     // FINAL PREDICTIONS
     // =========================
     const trainEvalFinal = await evaluateModel(model, xTrainT, yTrainT);
-    const testEvalFinal  = await evaluateModel(model, xTestT, yTestT);
+    const testEvalFinal = await evaluateModel(model, xTestT, yTestT);
 
     clearPlot("r3_train");
     clearPlot("r3_test");
@@ -1015,9 +1001,9 @@ async function trainR3BestFit() {
         dataset.xTrain,
         dataset.yTrainNoisy,
         trainEvalFinal.predictions,
-        "R3 Train (verrauscht)",
+        "R3 Train",
         trainEvalFinal.mse,
-        { showLine: false, pointRadius: 3 }
+        { showLine: false }
     );
 
     drawPredictionChart(
@@ -1025,18 +1011,11 @@ async function trainR3BestFit() {
         dataset.xTest,
         dataset.yTestNoisy,
         testEvalFinal.predictions,
-        "R3 Test (verrauscht)",
+        "R3 Test",
         testEvalFinal.mse,
-        { showLine: false, pointRadius: 3 }
+        { showLine: false }
     );
-
-    document.getElementById("r3_loss_text").innerHTML = `
-        <b>Train Loss:</b> ${trainEvalFinal.mse.toFixed(6)}
-        <br>
-        <b>Test Loss:</b> ${testEvalFinal.mse.toFixed(6)}
-    `;
 }
-
 
 async function trainA4Overfit() {
     const dataset = currentDataset;
@@ -1062,7 +1041,7 @@ async function trainA4Overfit() {
 
 
     const epochs = parseInt(
-        document.getElementById("r4_epochs")?.value || 200
+        document.getElementById("r4_epochs")?.value || 2000
     );
 
     const hiddenUnits = [100, 100];
@@ -1099,14 +1078,14 @@ async function trainA4Overfit() {
                 {
                     label: "Train Loss",
                     data: [],
-                    borderColor: "#e67e22",
+                    borderColor: "#3498db",
                     pointRadius: 0,
                     tension: 0
                 },
                 {
                     label: "Test Loss",
                     data: [],
-                    borderColor: "#9b59b6",
+                    borderColor: "#e74c3c",
                     pointRadius: 0,
                     tension: 0
                 }
