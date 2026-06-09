@@ -215,6 +215,7 @@ function toTensor(x, y) {
     ];
 }
 
+//Modell bauen
 function createModel() {
 
     const model = tf.sequential();
@@ -238,7 +239,7 @@ function createModel() {
             inputShape: i === 0 ? [1] : undefined,
 
             // =========================
-            // INITIALIZER AUS CODE 2
+            // INITIALIZER
             // =========================
 
             kernelInitializer:
