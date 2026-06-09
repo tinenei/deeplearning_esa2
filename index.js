@@ -1042,7 +1042,7 @@ async function trainA4Overfit() {
 
 
     const epochs = parseInt(
-        document.getElementById("r4_epochs")?.value || 2000
+        document.getElementById("r4_epochs")?.value || 3000
     );
 
     const hiddenUnits = [100, 100];
